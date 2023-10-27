@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrackBar;
 
 namespace B站视频历史评论删除工具
 {
@@ -30,15 +31,16 @@ namespace B站视频历史评论删除工具
         /// <summary>
         ///  tfc 查找任务窗口。
         /// </summary>
-        TaskFindComments tfc = new TaskFindComments();
-        /// <summary>
-        ///  tfc 窗口ric富文本数量。
-        /// </summary>
-        RichTextBox[] richTexts = new RichTextBox[5];
+        readonly TaskFindComments tfc = new TaskFindComments();
         /// <summary>
         ///  为propertiesName设置键值对。
         /// </summary>
         Dictionary<TextBox, string> propertiesName = new Dictionary<TextBox, string>();
+        /// <summary>
+        ///  判断是否包含评论的锁。
+        /// </summary>
+        private static readonly object _lock = new object();
+
         /// <summary>
         ///  oid选择。
         /// </summary>
@@ -114,90 +116,99 @@ namespace B站视频历史评论删除工具
         /// </summary>
         private void GetComments()
         {
-            // 任务列表。
-            List<Task> fiveTask = new List<Task>();
-            // 声明list大小为5。
-            fiveTask.Capacity = 5;
-            //// 定义循环数组。
-            //int[] arrayFor = new int[5];
-            // 所有获取到的oid与5取余数。
-            int tempindex = tempAllOid.Count % 5;
-            //// oid数组。
-            //List<string[]> oneOidArray = new List<string[]>();
-            //// 声明容量大小。
-            //oneOidArray.Capacity = 5;
-            // 进行判断 5减去余数后的商加上tempAllOid的数量除5。
-            if (tempindex != 0)
-            {
-                tempindex = ((5 - tempindex) + tempAllOid.Count) / 5;
-            }
-            else
-            {
-                tempindex = tempAllOid.Count / 5;
-            }
-            int tempAdd = 0;
-            for (int i = 0; i < fiveTask.Capacity; i++)
-            {
-                fiveTask.Add(Task.Run(async () =>
-                {
-                    await Task.Run(new Action(() => { GetCommentJudgment(i, tempAdd, tempindex); }));
-                }));
-                Thread.Sleep(100);
-                tempAdd += tempindex;
-            }
-            #region 暂时废弃。
-            //for (int i = 0; i < arrayFor.Length; i++)
+            Stopwatch sw = Stopwatch.StartNew();
+            sw.Restart();
+            GetCommentJudgment(0, 0, tempAllOid.Count);
+            sw.Stop();
+            RicTextActionPut($"------处理耗时:{sw.Elapsed.TotalSeconds.ToString("N6")}秒\r\n");
+            #region MyRegion
+
+
+            //// 任务列表。
+            //List<Task> fiveTask = new List<Task>();
+            //// 声明list大小为5。
+            //fiveTask.Capacity = 5;
+            ////// 定义循环数组。
+            ////int[] arrayFor = new int[5];
+            //// 所有获取到的oid与5取余数。
+            //int tempindex = tempAllOid.Count % 5;
+            ////// oid数组。
+            ////List<string[]> oneOidArray = new List<string[]>();
+            ////// 声明容量大小。
+            ////oneOidArray.Capacity = 5;
+            //// 进行判断 5减去余数后的商加上tempAllOid的数量除5。
+            //if (tempindex != 0)
             //{
-
-            //    fiveTask.Add(Task.Run(new Action(() =>
-            //    {
-            //        GetCommentJudgment(i, oneOidArray[i]);
-
-            //        //if (i == 0)
-            //        //{
-            //        //    for (int k = 0; k < arrayFor[0]; k++)
-            //        //    {
-            //        //        if (k > tempAllOid.Count)
-            //        //        {
-            //        //            break;
-            //        //        }
-            //        //        if (ThereAreComments(tempAllOid[k]))
-            //        //        {
-            //        //            strings.Add(tempAllOid[k]);
-            //        //        }
-            //        //        lock (this) { AddPush(0, tempAllOid[k]); }
-
-            //        //    }
-            //        //} 
-
-            //        //else
-            //        //{
-            //        //    int temp = 0;
-            //        //    if (i < 5)
-            //        //    {
-            //        //        temp = i;
-            //        //    }
-
-            //        //    for (int k = arrayFor[temp - 1]; k < arrayFor[temp]; k++)
-            //        //    {
-            //        //        if (k > tempAllOid.Count)
-            //        //        {
-            //        //            break;
-            //        //        }
-            //        //        if (ThereAreComments(tempAllOid[k]))
-            //        //        {
-            //        //            strings.Add(tempAllOid[k]);
-            //        //        }
-            //        //        lock (fiveTask) { AddPush(temp, tempAllOid[k]); }
-
-            //        //    }
-            //        //}
-
-            //    })));
-            //    Thread.Sleep(100);
+            //    tempindex = ((5 - tempindex) + tempAllOid.Count) / 5;
             //}
+            //else
+            //{
+            //    tempindex = tempAllOid.Count / 5;
+            //}
+            //int tempAdd = 0;
+            //for (int i = 0; i < fiveTask.Capacity; i++)
+            //{
+            //    fiveTask.Add(Task.Run(async () =>
+            //    {
+            //        await Task.Run(new Action(() => { GetCommentJudgment(i, tempAdd, tempindex); }));
+            //    }));
+            //    Thread.Sleep(100);
+            //    tempAdd += tempindex;
+            //}
+            //#region 暂时废弃。
+            ////for (int i = 0; i < arrayFor.Length; i++)
+            ////{
+
+            ////    fiveTask.Add(Task.Run(new Action(() =>
+            ////    {
+            ////        GetCommentJudgment(i, oneOidArray[i]);
+
+            ////        //if (i == 0)
+            ////        //{
+            ////        //    for (int k = 0; k < arrayFor[0]; k++)
+            ////        //    {
+            ////        //        if (k > tempAllOid.Count)
+            ////        //        {
+            ////        //            break;
+            ////        //        }
+            ////        //        if (ThereAreComments(tempAllOid[k]))
+            ////        //        {
+            ////        //            strings.Add(tempAllOid[k]);
+            ////        //        }
+            ////        //        lock (this) { AddPush(0, tempAllOid[k]); }
+
+            ////        //    }
+            ////        //} 
+
+            ////        //else
+            ////        //{
+            ////        //    int temp = 0;
+            ////        //    if (i < 5)
+            ////        //    {
+            ////        //        temp = i;
+            ////        //    }
+
+            ////        //    for (int k = arrayFor[temp - 1]; k < arrayFor[temp]; k++)
+            ////        //    {
+            ////        //        if (k > tempAllOid.Count)
+            ////        //        {
+            ////        //            break;
+            ////        //        }
+            ////        //        if (ThereAreComments(tempAllOid[k]))
+            ////        //        {
+            ////        //            strings.Add(tempAllOid[k]);
+            ////        //        }
+            ////        //        lock (fiveTask) { AddPush(temp, tempAllOid[k]); }
+
+            ////        //    }
+            ////        //}
+
+            ////    })));
+            ////    Thread.Sleep(100);
+            ////}
+            //#endregion
+            //Task.WaitAll(fiveTask.ToArray());
             #endregion
-            Task.WaitAll(fiveTask.ToArray());
         }
         /// <summary>
         ///  调用方法进行判断。
@@ -232,142 +243,137 @@ namespace B站视频历史评论删除工具
         /// <param name="e">事件。</param>
         private async void GetHistoryRecord(object sender, EventArgs e)
         {
-            button2.Enabled = false;
-            DialogResult result = DialogResult.None;
-            if (tempAllOid.Count != 0)
+            if (midText.Text != "0" && midText.Text != "")
             {
-                result = MessageBox.Show("是否清空上次收索记录。", "提示", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
-                if (result == DialogResult.Yes)
+                if (cookieText.Text != "")
                 {
-                    tempAllOid.Clear();
+                    button2.Enabled = false;
+                    DialogResult result = DialogResult.None;
+                    if (tempAllOid.Count != 0)
+                    {
+                        result = MessageBox.Show("是否清空上次收索记录。", "提示", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+                        if (result == DialogResult.Yes)
+                        {
+                            tempAllOid.Clear();
+                        }
+                        else if (result == DialogResult.Cancel)
+                        {
+                            button2.Enabled = true;
+                        }
+                    }
+                    if (button2.Enabled == false)
+                    {
+                        Stopwatch stopwatch = new Stopwatch();
+                        if (result != DialogResult.No)
+                        {
+                            await Task.Run(() =>
+                           {
+                               // 开始计时。
+                               stopwatch.Restart();
+                               GetHistoryVideoOid();
+                               stopwatch.Stop();
+                               RicTextActionPut($"获取历史记录数量:{tempAllOid.Count}\r\n 运行时间：{stopwatch.Elapsed}\r\n");
+                               richTextBox1.Invoke(new Action(() => Writelog(richTextBox1)));
+                           });
+                        }
+                        // 计时停止。
+                        stopwatch.Restart();
+                        // oid判断刷新界面。
+                        tfc.Show();
+                        // 判断oid。
+                        await Task.Run(new Action(GetComments));
+                        // 计时停止。
+                        stopwatch.Stop();
+                        // 返回判断是否包含评论时的耗时。
+                        richTextBox1.AppendText($"获取评论耗时：{stopwatch.Elapsed}\r\n");
+                        // 按钮启用。
+                        button2.Enabled = true;
+                        // 更新listoid列表。
+                        UpListOid(sender, e);
+                    }
                 }
-                else if (result == DialogResult.Cancel)
+                else
                 {
-                    button2.Enabled = true;
+                    MessageBox.Show("请输入cookie号。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
-            if (button2.Enabled == false)
+            else
             {
-                Stopwatch stopwatch = new Stopwatch();
-                stopwatch.Start();
-                /// <summary>
-                ///  下一次请求历史记录时起始位置。
-                /// </summary>
-                string historyMax = "0";
-                /// <summary>
-                ///  向上获取还是向下获取。
-                /// </summary>
-                string historyView_at = "0";
-                int findAllNumber = 0;
-                string tempps = null;
-                if (result != DialogResult.No)
-                {
-                    await Task.Run(new Action(() =>
-                   {
-                       MatchCollection resluteMatch = null;
-                       string resultToBackWeb;
-                       Task[] tasks = new Task[4];
-                       Stopwatch getStopWatch = new Stopwatch();
-                       stopwatch.Start();
-                       do
-                       {
-                           if (resluteMatch != null)
-                           {
-                               resluteMatch = null;
-                               for (int i = 0; i < tasks.Length; i++)
-                               {
-                                   tasks[i] = null;
-                               }
-                           }
-                           // 计时开始。
-                           getStopWatch.Start();
-                           // resultToBackWeb = GetHttpContent($"https://api.bilibili.com/x/web-interface/history/cursor?max={historyMax}&view_at={historyView_at}&business=").Result;
-                           // 获取最近30天的观看记录。
-                           resultToBackWeb = HttpRequest.Get($"https://api.bilibili.com/x/web-interface/history/cursor?max={historyMax}&view_at={historyView_at}&business=", Properties.Settings.Default.userCookie);
-                           // 停止计时。
-                           getStopWatch.Stop();
-                           // 截取下一次的起始max值。
-                           historyMax = Regex.Match(resultToBackWeb, "(?<=\"max\":)\\d{3,10}(?=,\"view_at\":)").Value.ToString();
-                           // 截取下一次的起始view值。
-                           historyView_at = Regex.Match(resultToBackWeb, "(?<=\"view_at\":)\\d{5,10}(?=,\"business\")").Value.ToString();
-                           // 截取返回页数量。
-                           tempps = Regex.Match(resultToBackWeb, "(?<=\"ps\":)\\d{1,2}(?=\\},\"tab\":)").Value.ToString();
-                           // 截取视频oid。
-                           resluteMatch = Regex.Matches(resultToBackWeb, "(?<=\"oid\":)\\d{3,12}(?=,\"epid)");
-                           // 获取截取到的数量。
-                           findAllNumber += resluteMatch.Count;
-                           // 富文本推送。
-                           RicTextActionPut($"---{tempAllOid.Count}---\r\n返回历史数量：{findAllNumber}\r\nMax:{historyMax}\r\nView_at:{historyView_at}\r\n耗时:{getStopWatch.Elapsed.TotalSeconds}\r\n\r\n");
-                           getStopWatch.Restart();
-                           // task任务循环标志。
-                           int tempAdd = 0;
-
-                           // 委托，临时。
-                           for (int i = 0; i < tasks.Length; i++)
-                           {
-                               // 为任务列表添加任务。
-                               tasks[i] = Task.Run(new Action(() =>
-                               {
-                                   // new 新的委托。
-                                   // 匿名函数，for循环判断。
-                                   for (int j = tempAdd; j < tempAdd + 5; j++)
-                                   {
-                                       // 如果循环值大于截取的数量，跳出。
-                                       if (j >= resluteMatch.Count)
-                                       {
-                                           break;
-                                       }
-                                       // 判断是否包含了，防止重复。
-                                       if (tempAllOid.Contains(resluteMatch[j].Value))
-                                       {
-                                           // 推送，红色警告。
-                                           RicTextActionPut($"已包含该oid：\r\n{resluteMatch[j].Value}", true);
-                                       }
-                                       else
-                                       {
-                                           tempAllOid.Add(resluteMatch[j].ToString());
-                                       }
-                                   }
-                               }
-                               ));
-                               // 延迟。
-                               Thread.Sleep(100);
-                               // 延迟加。
-                               tempAdd += 5;
-                           }
-                           try
-                           {
-                               // 等待所有任务完成。
-                               Task.WaitAll(tasks);
-                           }
-                           catch (Exception)
-                           {
-                               Thread.Sleep(50);
-                           }
-                       } while (tempps != "0");
-                       // 计时停止。
-                       stopwatch.Stop();
-                       RicTextActionPut($"查询历史记录数量:{findAllNumber}\r\n最终Ps:{tempps}\r\n 运行时间：{stopwatch.Elapsed}\r\n");
-                       richTextBox1.Invoke(new Action(() => Writelog(richTextBox1)));
-                   }));
-                }
-                // oid判断刷新界面。
-                tfc.Show();
-                // 计时停止。
-                stopwatch.Start();
-                // 判断oid。
-                await Task.Run(new Action(GetComments));
-                // 按钮启用。
-                button2.Enabled = true;
-                // 更新listoid列表。
-                UpListOid(sender, e);
-                // 计时停止。
-                stopwatch.Stop();
-                // 返回判断是否包含评论时的耗时。
-                richTextBox1.AppendText($"获取评论耗时：{stopwatch.Elapsed}\r\n");
+                MessageBox.Show("请输入mid号。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-        private static readonly object _lock = new object();
+        /// <summary>
+        ///  获取评论结果。
+        /// </summary>
+        private void GetRemarkResult()
+        {
+
+
+
+        }
+        /// <summary>
+        ///  获取历史记录视频oid号
+        /// </summary>
+        private void GetHistoryVideoOid()
+        {
+            /// <summary>
+            ///  下一次请求历史记录时起始位置。
+            /// </summary>
+            string historyMax = "0";
+            /// <summary>
+            ///  向上获取还是向下获取。
+            /// </summary>
+            string historyView_at = "0";
+            // 获取视频oid结果。
+            MatchCollection resultMatch = null;
+            // 计时器。
+            Stopwatch getStopWatch = new Stopwatch();
+            // 浏览器返回结果。
+            string resultToBackWeb;
+            // 找到的oid总数量。
+            int findAllNumber = 0;
+            do
+            {
+                if (resultMatch != null)
+                {
+                    resultMatch = null;
+                }
+                // 计时开始。
+                getStopWatch.Restart();
+                // 获取最近30天的观看记录。
+                resultToBackWeb = HttpRequest.Get($"https://api.bilibili.com/x/web-interface/history/cursor?max={historyMax}&view_at={historyView_at}&business=", Properties.Settings.Default.userCookie);
+                // 停止计时。
+                getStopWatch.Stop();
+                // 截取下一次的起始max值。
+                historyMax = Regex.Match(resultToBackWeb, "(?<=\"max\":)\\d{3,10}(?=,\"view_at\":)").Value.ToString();
+                // 截取下一次的起始view值。
+                historyView_at = Regex.Match(resultToBackWeb, "(?<=\"view_at\":)\\d{5,10}(?=,\"business\")").Value.ToString();
+                // 截取视频oid。
+                resultMatch = Regex.Matches(resultToBackWeb, "(?<=\"oid\":)\\d{3,12}(?=,\"epid)");
+                // 获取截取到的数量。
+                findAllNumber += resultMatch.Count;
+                // 富文本推送。
+                RicTextActionPut($"---{tempAllOid.Count}---\r\n返回历史数量：{findAllNumber}\r\nMax:{historyMax}\r\nView_at:{historyView_at}\r\n耗时:{getStopWatch.Elapsed.TotalSeconds}秒\r\n");
+                // 计时开始。
+                getStopWatch.Restart();
+                foreach (object item in resultMatch)
+                {
+                    //判断是否包含了，防止重复。
+                    if (tempAllOid.Contains(item.ToString()))
+                    {
+                        // 推送，红色警告。
+                        RicTextActionPut($"已包含该oid：\r\n{item}", true);
+                    }
+                    else
+                    {
+                        tempAllOid.Add(item.ToString());
+                    }
+                }
+                getStopWatch.Stop();
+                // 富文本推送。
+                RicTextActionPut($"------处理耗时:{getStopWatch.Elapsed.TotalMilliseconds.ToString("N6")}毫秒\r\n");
+            } while (resultMatch.Count != 0);
+        }
         /// <summary>
         ///  写入log。
         /// </summary>
@@ -425,139 +431,11 @@ namespace B站视频历史评论删除工具
             ));
 
         }
-        private static readonly object _okk = new object();
         /// <summary>
-        ///  判断是否存在评论。
+        ///  判断是否包含评论。
         /// </summary>
         /// <param name="oid">视频oid号。</param>
-        /// <returns>包含返回true。其他则为false。</returns>
-        private bool OldThereAreComments(string oid)
-        {
-            // 接受返回结果。
-            string result = GetMd5.NewResultGetMd5(oid, "1315875");
-            // 判断是否包含。
-            string resultToBackWeb = HttpRequest.Get(GetMd5.NewResultGetMd5(oid, "1315875"), cookieText.Text);
-            // 结束标志，设置为true。
-            string is_end = "true";
-            string is_name = "最新评论";
-            // 正则表达式提取文字。
-            string next = null;
-            int all_count = 0;
-            do
-            { // 接受评论区信息，并判断是否包含指定mid。
-                if (resultToBackWeb.Contains("\"mid\":" + Properties.Settings.Default.userMid))
-                {
-                    if (!findContainCommentsIsOid.ContainsKey(oid))
-                    {
-                        try
-                        {
-                            MatchCollection match = Regex.Matches(resultToBackWeb, $"(?<=\"rpid\":)\\d{{4,18}}(?=,\"oid\":{oid},\"type\":\\d{{1,2}},\"mid\":{Properties.Settings.Default.userMid},\"root\")");
-                            MatchCollection CommentMatch = Regex.Matches(resultToBackWeb, $"(?<=\"mid\":\"{Properties.Settings.Default.userMid}\"}}}},\"content\":{{\"message\":\").*?(?=\",\"members\":)");
-
-                            if (match.Count == 0 || CommentMatch.Count != match.Count)
-                            {
-                                RicTextActionPut($"错误：rpid与评论不相等。\r\nOid：{oid}\r\nrpid数：{match.Count}\r\n评论数：{CommentMatch.Count}", true);
-                                break;
-                            }
-                            try
-                            {
-                                findContainCommentsIsOid.Add(oid, new Dictionary<string, string>());
-                                try
-                                {
-                                    for (int i = 0; i < match.Count; i++)
-                                    {
-                                        try
-                                        {
-                                            findContainCommentsIsOid[oid].Add(match[i].ToString(), CommentMatch[i].ToString());
-                                        }
-                                        catch (Exception message)
-                                        {
-
-                                            RicTextActionPut($"错误代码：500\r\n内容：{message.Message}", true);
-                                        }
-                                    }
-                                }
-                                catch (Exception message)
-                                {
-
-                                    RicTextActionPut($"错误代码：527\r\n内容：{message.Message}", true);
-                                }
-
-                            }
-                            catch (Exception message)
-                            {
-
-                                RicTextActionPut($"错误代码：534\r\n内容：{message.Message}", true);
-
-                            }
-                        }
-                        catch (Exception message)
-                        {
-                            RicTextActionPut($"错误代码：542\r\n内容：{message.Message}", true);
-                        }
-                    }
-                    // 返回。
-                    return true;
-                }
-                try
-                {
-                    // 数字转换异常。
-                    try
-                    {
-
-                        // 结束标志，设置为true。
-                        is_end = Regex.Match(resultToBackWeb, "(?<=,\"is_end\":)\\w{4,5}(?=,\"mode\":)").Value;
-                        is_name = Regex.Match(resultToBackWeb, "(?<=,\"name\":\")[\u4e00-\u9fa5]{4}(?=\",\"pagination_reply\")").Value;
-                        // 是否结束，是否不等于最新评论。
-                        if (is_end == "true" || is_name != "最新评论")
-                        {
-                            break;
-                        }
-                        if (all_count == 0)
-                        {
-                            // 获取当前全部评论数。
-                            all_count = Convert.ToInt32(Regex.Match(resultToBackWeb, "(?<=\"all_count\":)\\d{0,20}(?=,\"support_mode\":)").Value);
-
-                        }
-
-                    }
-                    catch (Exception errorMessage)
-                    {
-                        RicTextActionPut($"错误：594  :{oid}数字转换失败,可能未开启评论区。\r\n" + errorMessage.Message, true);
-                        break;
-                    }
-                    // 判断是否大于200。
-                    if (checkBox1.Checked && (all_count > Properties.Settings.Default.userMax))
-                    {
-                        break;
-                    }
-                    try
-                    {
-                        // 正则表达式提取文字。
-                        next = Regex.Match(resultToBackWeb, "(?<=,\"next\":)\\d{1,10}(?=,\"is_end\":)").Value;
-                        if (next == "0")
-                        {
-                            break;
-                        }
-                        // 获取网页返回值。
-                        resultToBackWeb = HttpRequest.Get(GetMd5.AllResultGetMd5(oid, "1315875", next), Properties.Settings.Default.userCookie);
-                    }
-                    catch (Exception errorMessage)
-                    {
-                        RicTextActionPut("错误：615" + errorMessage.Source + "\r\n" + errorMessage.Message, true);
-
-                    }
-
-                }
-                catch (Exception errorMessage)
-                {
-                    RicTextActionPut("错误：622  " + errorMessage.Source + "\r\n" + errorMessage.Message, true);
-
-                }
-            } while (is_end == "false");
-            return false;
-
-        }
+        /// <returns>返回结果。</returns>
         private bool ThereAreComments(string oid)
         {
             lock (_lock)
@@ -601,9 +479,11 @@ namespace B站视频历史评论删除工具
                             {
                                 try
                                 {
+                                    // 获取rpid。
                                     MatchCollection match = Regex.Matches(resultToBackWeb, $"(?<=\"rpid\":)\\d{{4,18}}(?=,\"oid\":{oid},\"type\":\\d{{1,2}},\"mid\":{Properties.Settings.Default.userMid},\"root\")");
+                                    // 获取评论。
                                     MatchCollection CommentMatch = Regex.Matches(resultToBackWeb, $"(?<=\"mid\":\"{Properties.Settings.Default.userMid}\"}}}},\"content\":{{\"message\":\").*?(?=\",\"members\":)");
-
+                                    // 判断评论id与评论是否相等。
                                     if (match.Count == 0 || CommentMatch.Count != match.Count)
                                     {
                                         RicTextActionPut($"错误：rpid与评论不相等。\r\nOid：{oid}\r\nrpid数：{match.Count}\r\n评论数：{CommentMatch.Count}", true);
@@ -630,7 +510,7 @@ namespace B站视频历史评论删除工具
                                         catch (Exception message)
                                         {
 
-                                            RicTextActionPut($"错误代码：527\r\n内容：{message.Message}", true);
+                                            RicTextActionPut($"错误：获取评论时出错。\r\n内容：{message.Message}", true);
                                         }
 
                                     }
@@ -684,9 +564,7 @@ namespace B站视频历史评论删除工具
                     }
                     catch (Exception error)
                     {
-
                         RicTextActionPut($"oid-{oid}-值判断错误：{error.Message}。\r\n{error}\r\n", true);
-
                     }
 
                 } while (true);
@@ -702,8 +580,6 @@ namespace B站视频历史评论删除工具
         {
             if (textComments.TextLength != 0)
             {
-
-
                 DialogResult result = MessageBox.Show($"是否删除该评论：\r\n{textComments.Text}", "警告！！！", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
                 if (result == DialogResult.OK)
                 {
@@ -761,9 +637,11 @@ namespace B站视频历史评论删除工具
         /// <param name="e"></param>
         private void Form1_Load(object sender, EventArgs e)
         {
+            // 添加资源信息。
             propertiesName.Add(midText, "userMid");
             propertiesName.Add(maxTextbox, "userMax");
             propertiesName.Add(cookieText, "userCookie");
+            // 循环获取。
             foreach (var item in propertiesName)
             {
                 try
@@ -777,6 +655,8 @@ namespace B站视频历史评论删除工具
                 }
 
             }
+            // creat Dicrectory。
+            // 创建目录。
             if (!Directory.Exists(Properties.Settings.Default.logSavePath))
             {
                 Directory.CreateDirectory(Properties.Settings.Default.logSavePath);
@@ -821,7 +701,7 @@ namespace B站视频历史评论删除工具
         {
             // 转换为 textbox控件。
             TextBox ss = (TextBox)sender;
-            // 如果不想等。
+            // 如果不相等。
             if (ss.Text != Properties.Settings.Default[propertiesName[ss]].ToString())
             {
                 try
@@ -861,7 +741,7 @@ namespace B站视频历史评论删除工具
                 // 是否是0-9的数字。
                 if (e.KeyChar < '0' || e.KeyChar > '9')
                 {
-                    // 让系统人为已经处理过该事件了，不在填充文字。
+                    // 让系统认为已经处理过该事件了，不在填充文字。
                     e.Handled = true;
                 }
             }
@@ -877,3 +757,4 @@ namespace B站视频历史评论删除工具
     }
 
 }
+
