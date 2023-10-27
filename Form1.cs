@@ -777,7 +777,7 @@ namespace B站视频历史评论删除工具
                 }
 
             }
-            if (Directory.Exists(Properties.Settings.Default.logSavePath))
+            if (!Directory.Exists(Properties.Settings.Default.logSavePath))
             {
                 Directory.CreateDirectory(Properties.Settings.Default.logSavePath);
             }
