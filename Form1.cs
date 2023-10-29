@@ -1,10 +1,13 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -118,97 +121,50 @@ namespace B站视频历史评论删除工具
         {
             Stopwatch sw = Stopwatch.StartNew();
             sw.Restart();
-            GetCommentJudgment(0, 0, tempAllOid.Count);
+            //GetCommentJudgment(0, 0, tempAllOid.Count);
+            #region MyRegion
+            // 任务列表。
+            List<Task> fiveTask = new List<Task>();
+            // 声明list大小为5。
+            fiveTask.Capacity = 5;
+            //// 定义循环数组。
+            //int[] arrayFor = new int[5];
+            // 所有获取到的oid与5取余数。
+            int tempindex = JudgeNum(tempAllOid.Count, 5);
+            int tempAdd = 0;
+            for (int i = 0; i < fiveTask.Capacity; i++)
+            {
+                fiveTask.Add(Task.Run(async () =>
+                {
+                    await Task.Run(new Action(() => { GetCommentJudgment(i, tempAdd, tempindex); }));
+                }));
+                Thread.Sleep(100);
+                tempAdd += tempindex;
+            }
+            Task.WaitAll(fiveTask.ToArray());
+            #endregion
             sw.Stop();
             RicTextActionPut($"------处理耗时:{sw.Elapsed.TotalSeconds.ToString("N6")}秒\r\n");
-            #region MyRegion
-
-
-            //// 任务列表。
-            //List<Task> fiveTask = new List<Task>();
-            //// 声明list大小为5。
-            //fiveTask.Capacity = 5;
-            ////// 定义循环数组。
-            ////int[] arrayFor = new int[5];
-            //// 所有获取到的oid与5取余数。
-            //int tempindex = tempAllOid.Count % 5;
-            ////// oid数组。
-            ////List<string[]> oneOidArray = new List<string[]>();
-            ////// 声明容量大小。
-            ////oneOidArray.Capacity = 5;
-            //// 进行判断 5减去余数后的商加上tempAllOid的数量除5。
-            //if (tempindex != 0)
-            //{
-            //    tempindex = ((5 - tempindex) + tempAllOid.Count) / 5;
-            //}
-            //else
-            //{
-            //    tempindex = tempAllOid.Count / 5;
-            //}
-            //int tempAdd = 0;
-            //for (int i = 0; i < fiveTask.Capacity; i++)
-            //{
-            //    fiveTask.Add(Task.Run(async () =>
-            //    {
-            //        await Task.Run(new Action(() => { GetCommentJudgment(i, tempAdd, tempindex); }));
-            //    }));
-            //    Thread.Sleep(100);
-            //    tempAdd += tempindex;
-            //}
-            //#region 暂时废弃。
-            ////for (int i = 0; i < arrayFor.Length; i++)
-            ////{
-
-            ////    fiveTask.Add(Task.Run(new Action(() =>
-            ////    {
-            ////        GetCommentJudgment(i, oneOidArray[i]);
-
-            ////        //if (i == 0)
-            ////        //{
-            ////        //    for (int k = 0; k < arrayFor[0]; k++)
-            ////        //    {
-            ////        //        if (k > tempAllOid.Count)
-            ////        //        {
-            ////        //            break;
-            ////        //        }
-            ////        //        if (ThereAreComments(tempAllOid[k]))
-            ////        //        {
-            ////        //            strings.Add(tempAllOid[k]);
-            ////        //        }
-            ////        //        lock (this) { AddPush(0, tempAllOid[k]); }
-
-            ////        //    }
-            ////        //} 
-
-            ////        //else
-            ////        //{
-            ////        //    int temp = 0;
-            ////        //    if (i < 5)
-            ////        //    {
-            ////        //        temp = i;
-            ////        //    }
-
-            ////        //    for (int k = arrayFor[temp - 1]; k < arrayFor[temp]; k++)
-            ////        //    {
-            ////        //        if (k > tempAllOid.Count)
-            ////        //        {
-            ////        //            break;
-            ////        //        }
-            ////        //        if (ThereAreComments(tempAllOid[k]))
-            ////        //        {
-            ////        //            strings.Add(tempAllOid[k]);
-            ////        //        }
-            ////        //        lock (fiveTask) { AddPush(temp, tempAllOid[k]); }
-
-            ////        //    }
-            ////        //}
-
-            ////    })));
-            ////    Thread.Sleep(100);
-            ////}
-            //#endregion
-            //Task.WaitAll(fiveTask.ToArray());
-            #endregion
+        }
+        /// <summary>
+        ///  对传入数字进行均分。
+        /// </summary>
+        /// <param name="num">要均分的数。</param>
+        /// <param name="division">均分多少份。</param>
+        /// <returns>返回均分后的结果。</returns>
+        private int JudgeNum(int num, int division)
+        {
+            // 所有获取到的oid与5取余数。
+            int tempindex = num % division;
+            // 进行判断 5减去余数后的商加上tempAllOid的数量除5。
+            if (tempindex != 0)
+            {
+                return tempindex = ((division - tempindex) + num) / division;
+            }
+            else
+            {
+                return tempindex = num / division;
+            }
         }
         /// <summary>
         ///  调用方法进行判断。
@@ -438,138 +394,367 @@ namespace B站视频历史评论删除工具
         /// <returns>返回结果。</returns>
         private bool ThereAreComments(string oid)
         {
-            lock (_lock)
-            {
-                // 接受返回结果。
-                string result = GetMd5.NewResultGetMd5(oid, "1315875");
-                // 判断是否包含。
-                string resultToBackWeb = HttpRequest.Get(GetMd5.NewResultGetMd5(oid, "1315875"), cookieText.Text);
-                string is_name = "最新评论";
-                // 正则表达式提取文字。
-                string next = Regex.Match(resultToBackWeb, "(?<=,\"next\":)\\d{1,10}(?=,\"is_end\":)").Value;
-                string prev = Regex.Match(resultToBackWeb, "(?<=,\"prev\":)\\d{0,10}(?=,\"next\":)").Value;
-                int all_count = 0;
-                try
-                {
-                    if (Regex.Match(resultToBackWeb, "(?<=\"input_disable\":)\\w{0,4}(?=,\"root_input_text\":)").Value == "true" || prev == "0" || prev == "")
-                    {
-                        if (prev != "0")
-                        {
-                            RicTextActionPut($"oid-{oid}-错误：当前页面评论功能已关闭或up开启限制。", true);
-                        }
-                        return false;
-                    }
-                    // 获取当前全部评论数。
-                    all_count = Convert.ToInt32(Regex.Match(resultToBackWeb, "(?<=\"all_count\":)\\d{0,20}(?=,\"support_mode\":)").Value);
 
-                }
-                catch (Exception error)
-                {
-                    RicTextActionPut($"oid-{oid}-错误：当前oid未包含任何评论。\r\n{error}\r\n", true);
-                    return false;
-                }
-                do
+            string next;
+            string temp = null;
+            string is_name = "最新评论";
+            int all_count = 0;
+            int prev = 0;
+            List<string> stringList = new List<string>();
+            List<Task> tasksList = new List<Task>();
+            try
+            {
+                stringList.Add(HttpRequest.Get(GetMd5.RequestMd5(0, oid, "1315875"), cookieText.Text));
+            }
+            catch (Exception error)
+            {
+                RicTextActionPut($"oid-{oid}-错误：获取评论失败。\r\n{error}\r\n", true);
+            }
+            try
+            {
+                // 获得当前评论类型。
+                is_name = Regex.Match(stringList[stringList.Count - 1], "(?<=,\"name\":\")[\u4e00-\u9fa5]{4}(?=\",\"pagination_reply\")").Value;
+            }
+            catch (Exception error)
+            {
+                RicTextActionPut($"oid-{oid}-错误：评论内容不能为空\r\n{error.Message}。", true);
+            }
+            if (is_name != "最新评论")
+            {
+                RicTextActionPut($"oid-{oid}-错误：不能以{is_name}方式获取评论。", true);
+                return false;
+            }
+            try
+            {
+                // 获取当前全部评论数。
+                all_count = Convert.ToInt32(Regex.Match(stringList[stringList.Count - 1], "(?<=\"all_count\":)\\d{0,20}(?=,\"support_mode\":)").Value);
+            }
+            catch (Exception error)
+            {
+                RicTextActionPut($"oid-{oid}-错误：当前oid未包含任何评论。\r\n{error}\r\n", true);
+                return false;
+            }
+            if ((checkBox1.Checked && all_count > Properties.Settings.Default.userMax) || all_count == 0)
+            {
+                if (all_count == 0)
                 {
                     try
                     {
+                        RicTextActionPut($"oid-{oid}-错误：当前oid评论数为{all_count}。\r\n", true);
+
+                    }
+                    catch (Exception error)
+                    {
+                        RicTextActionPut($"oid-{oid}-错误：{error}。\r\n", true);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        RicTextActionPut($"oid-{oid}-错误：当前oid评论超出设定值，返回评论数{all_count}。\r\n", true);
+                    }
+                    catch (Exception error)
+                    {
+
+                        RicTextActionPut($"oid-{oid}-错误：{error}。\r\n", true);
+                    }
+                }
+                return false;
+            }
+            try
+            {
+                prev = Convert.ToInt32(Regex.Match(stringList[stringList.Count - 1], "(?<=,\"prev\":)\\d{1,10}(?=,\"next\":)").Value);
+
+            }
+            catch (Exception error)
+            {
+                RicTextActionPut($"错误：不能将string类型转为int。\r\n{error}\r\n", true);
+                return false;
+            }
+            int tempindex = JudgeNum(prev, 4);
+            Stopwatch ss = new Stopwatch();
+            ss.Start();
+           
+                    do
+                    {
+                        next = Regex.Match(stringList[stringList.Count - 1], "(?<=,\"next\":)\\d{1,10}(?=,\"is_end\":)").Value;
+                        stringList.Add(HttpRequest.Get(GetMd5.RequestMd5(1, oid, "1315875", next), cookieText.Text));
+                    } while (next!="0");
+                   
+            //do
+            //{
+
+            //    // 正则表达式提取文字。
+            //    next = Regex.Match(stringList[stringList.Count - 1], "(?<=,\"next\":)\\d{1,10}(?=,\"is_end\":)").Value;
+            //    stringList.Add(HttpRequest.Get(GetMd5.RequestMd5(1, oid, "1315875", next), cookieText.Text));
+            //} while (next != "0");
+            ss.Stop();
+            RicTextActionPut($"评论耗时：{ss.Elapsed.Seconds}秒", true);
+            ss.Restart();
+            JudgeRemark(stringList, oid);
+            ss.Stop();
+            RicTextActionPut($"耗时：{ss.Elapsed.Milliseconds}毫秒", true);
+            // MessageBox.Show("sdss");
+            #region 临时屏蔽
+            //try
+            //{
+            //    if (Regex.Match(resultToBackWeb, "(?<=\"input_disable\":)\\w{0,4}(?=,\"root_input_text\":)").Value == "true" || prev == "0" || prev == "")
+            //    {
+            //        if (prev != "0")
+            //        {
+            //            RicTextActionPut($"oid-{oid}-错误：当前页面评论功能已关闭或up开启限制。", true);
+            //        }
+            //        return false;
+            //    }
+            //    // 获取当前全部评论数。
+            //    all_count = Convert.ToInt32(Regex.Match(resultToBackWeb, "(?<=\"all_count\":)\\d{0,20}(?=,\"support_mode\":)").Value);
+
+            //}
+            //catch (Exception error)
+            //{
+            //    RicTextActionPut($"oid-{oid}-错误：当前oid未包含任何评论。\r\n{error}\r\n", true);
+            //    return false;
+            //}
+            //do
+            //{
+            //    try
+            //    {
+            //        // 接受评论区信息，并判断是否包含指定mid。
+            //        if (resultToBackWeb.Contains("\"mid\":" + Properties.Settings.Default.userMid))
+            //        {
+            //            if (!findContainCommentsIsOid.ContainsKey(oid))
+            //            {
+            //                try
+            //                {
+            //                    // 获取rpid。
+            //                    MatchCollection match = Regex.Matches(resultToBackWeb, $"(?<=\"rpid\":)\\d{{4,18}}(?=,\"oid\":{oid},\"type\":\\d{{1,2}},\"mid\":{Properties.Settings.Default.userMid},\"root\")");
+            //                    // 获取评论。
+            //                    MatchCollection CommentMatch = Regex.Matches(resultToBackWeb, $"(?<=\"mid\":\"{Properties.Settings.Default.userMid}\"}}}},\"content\":{{\"message\":\").*?(?=\",\"members\":)");
+            //                    // 判断评论id与评论是否相等。
+            //                    if (match.Count == 0 || CommentMatch.Count != match.Count)
+            //                    {
+            //                        RicTextActionPut($"错误：rpid与评论不相等。\r\nOid：{oid}\r\nrpid数：{match.Count}\r\n评论数：{CommentMatch.Count}", true);
+            //                        break;
+            //                    }
+            //                    try
+            //                    {
+            //                        findContainCommentsIsOid.Add(oid, new Dictionary<string, string>());
+            //                        try
+            //                        {
+            //                            for (int i = 0; i < match.Count; i++)
+            //                            {
+            //                                try
+            //                                {
+            //                                    findContainCommentsIsOid[oid].Add(match[i].ToString(), CommentMatch[i].ToString());
+            //                                }
+            //                                catch (Exception message)
+            //                                {
+
+            //                                    RicTextActionPut($"错误代码：500\r\n内容：{message.Message}", true);
+            //                                }
+            //                            }
+            //                        }
+            //                        catch (Exception message)
+            //                        {
+
+            //                            RicTextActionPut($"错误：获取评论时出错。\r\n内容：{message.Message}", true);
+            //                        }
+
+            //                    }
+            //                    catch (Exception message)
+            //                    {
+
+            //                        RicTextActionPut($"错误代码：534\r\n内容：{message.Message}", true);
+
+            //                    }
+            //                }
+            //                catch (Exception message)
+            //                {
+            //                    RicTextActionPut($"错误代码：542\r\n内容：{message.Message}", true);
+            //                }
+            //            }
+            //            // 返回。
+            //            return true;
+            //        }
+            //        else
+            //        {
+            //            if (checkBox1.Checked && all_count > Properties.Settings.Default.userMax)
+            //            {
+            //                break;
+            //            }
+            //            is_name = Regex.Match(resultToBackWeb, "(?<=,\"name\":\")[\u4e00-\u9fa5]{4}(?=\",\"pagination_reply\")").Value;
+            //            if (is_name == "最新评论")
+            //            {
+            //                // 正则表达式提取文字。
+            //                next = Regex.Match(resultToBackWeb, "(?<=,\"next\":)\\d{1,10}(?=,\"is_end\":)").Value;
+            //                if (next == "0" || next == "")
+            //                {
+            //                    break;
+            //                }
+            //                try
+            //                {
+            //                    // 获取网页返回值。
+            //                    resultToBackWeb = HttpRequest.Get(GetMd5.RequestMd5(1, oid, "1315875", next), Properties.Settings.Default.userCookie);
+            //                }
+            //                catch (Exception error)
+            //                {
+
+            //                    RicTextActionPut($"获取评论内容错误:\r\n{error.Message}", true);
+            //                }
+            //            }
+            //            else
+            //            {
+            //                RicTextActionPut($"oid{oid}-错误：\r\n不能判断以{is_name}方式显示评论的视频。", true);
+            //                break;
+            //            }
+            //        }
+            //    }
+            //    catch (Exception error)
+            //    {
+            //        RicTextActionPut($"oid-{oid}-值判断错误：{error.Message}。\r\n{error}\r\n", true);
+            //    }
+
+            //} while (true);
+            #endregion
+            return false;
+        }
+        /// <summary>
+        ///  判断评论。
+        /// </summary>
+        /// <param name="remark">评论。</param>
+        /// <param name="oid">视频oid。</param>
+        private void JudgeRemark(List<string> remark, string oid)
+        {
+            try
+            {
+                if (!findContainCommentsIsOid.ContainsKey(oid))
+                {
+                    MatchCollection match;
+                    MatchCollection CommentMatch;
+                    foreach (var item in remark)
+                    {
                         // 接受评论区信息，并判断是否包含指定mid。
-                        if (resultToBackWeb.Contains("\"mid\":" + Properties.Settings.Default.userMid))
+                        if (item.Contains("\"mid\":" + Properties.Settings.Default.userMid))
                         {
-                            if (!findContainCommentsIsOid.ContainsKey(oid))
+
+                            try
                             {
+                                // 获取rpid。
+                                match = Regex.Matches(item, $"(?<=\"rpid\":)\\d{{4,18}}(?=,\"oid\":{oid},\"type\":\\d{{1,2}},\"mid\":{Properties.Settings.Default.userMid},\"root\")");
+                                // 获取评论。
+                                CommentMatch = Regex.Matches(item, $"(?<=\"mid\":\"{Properties.Settings.Default.userMid}\"}}}},\"content\":{{\"message\":\").*?(?=\",\"members\":)");
+                                // 判断评论id与评论是否相等。
+                                if (match.Count == 0 || CommentMatch.Count != match.Count)
+                                {
+                                    RicTextActionPut($"错误：rpid与评论不相等。\r\nOid：{oid}\r\nrpid数：{match.Count}\r\n评论数：{CommentMatch.Count}", true);
+                                }
                                 try
                                 {
-                                    // 获取rpid。
-                                    MatchCollection match = Regex.Matches(resultToBackWeb, $"(?<=\"rpid\":)\\d{{4,18}}(?=,\"oid\":{oid},\"type\":\\d{{1,2}},\"mid\":{Properties.Settings.Default.userMid},\"root\")");
-                                    // 获取评论。
-                                    MatchCollection CommentMatch = Regex.Matches(resultToBackWeb, $"(?<=\"mid\":\"{Properties.Settings.Default.userMid}\"}}}},\"content\":{{\"message\":\").*?(?=\",\"members\":)");
-                                    // 判断评论id与评论是否相等。
-                                    if (match.Count == 0 || CommentMatch.Count != match.Count)
-                                    {
-                                        RicTextActionPut($"错误：rpid与评论不相等。\r\nOid：{oid}\r\nrpid数：{match.Count}\r\n评论数：{CommentMatch.Count}", true);
-                                        break;
-                                    }
+                                    findContainCommentsIsOid.Add(oid, new Dictionary<string, string>());
                                     try
                                     {
-                                        findContainCommentsIsOid.Add(oid, new Dictionary<string, string>());
-                                        try
+                                        // 循环取值。
+                                        for (int i = 0; i < match.Count; i++)
                                         {
-                                            for (int i = 0; i < match.Count; i++)
+                                            try
                                             {
-                                                try
-                                                {
-                                                    findContainCommentsIsOid[oid].Add(match[i].ToString(), CommentMatch[i].ToString());
-                                                }
-                                                catch (Exception message)
-                                                {
+                                                // 添加评论。
+                                                findContainCommentsIsOid[oid].Add(match[i].ToString(), CommentMatch[i].ToString());
+                                            }
+                                            catch (Exception message)
+                                            {
 
-                                                    RicTextActionPut($"错误代码：500\r\n内容：{message.Message}", true);
-                                                }
+                                                RicTextActionPut($"oid{oid}错误：未能成功保存值。\r\n内容：{message.Message}", true);
                                             }
                                         }
-                                        catch (Exception message)
-                                        {
-
-                                            RicTextActionPut($"错误：获取评论时出错。\r\n内容：{message.Message}", true);
-                                        }
-
                                     }
                                     catch (Exception message)
                                     {
 
-                                        RicTextActionPut($"错误代码：534\r\n内容：{message.Message}", true);
-
+                                        RicTextActionPut($"oid{oid}错误：取出评论时出错。\r\n内容：{message.Message}", true);
                                     }
                                 }
                                 catch (Exception message)
                                 {
-                                    RicTextActionPut($"错误代码：542\r\n内容：{message.Message}", true);
+                                    RicTextActionPut($"oid{oid}错误：未能成功创建字典。\r\n内容：{message.Message}", true);
                                 }
                             }
-                            // 返回。
-                            return true;
-                        }
-                        else
-                        {
-                            if (checkBox1.Checked && all_count > Properties.Settings.Default.userMax)
+                            catch (Exception message)
                             {
-                                break;
-                            }
-                            is_name = Regex.Match(resultToBackWeb, "(?<=,\"name\":\")[\u4e00-\u9fa5]{4}(?=\",\"pagination_reply\")").Value;
-                            if (is_name == "最新评论")
-                            {
-                                // 正则表达式提取文字。
-                                next = Regex.Match(resultToBackWeb, "(?<=,\"next\":)\\d{1,10}(?=,\"is_end\":)").Value;
-                                if (next == "0" || next == "")
-                                {
-                                    break;
-                                }
-                                try
-                                {
-                                    // 获取网页返回值。
-                                    resultToBackWeb = HttpRequest.Get(GetMd5.AllResultGetMd5(oid, "1315875", next), Properties.Settings.Default.userCookie);
-                                }
-                                catch (Exception error)
-                                {
-
-                                    RicTextActionPut($"获取评论内容错误:\r\n{error.Message}", true);
-                                }
-                            }
-                            else
-                            {
-                                RicTextActionPut($"oid{oid}-错误：\r\n不能判断以{is_name}方式显示评论的视频。", true);
-                                break;
+                                RicTextActionPut($"{oid}错误：未能正确获取评论与rpid。\r\n内容：{message.Message}", true);
                             }
                         }
                     }
-                    catch (Exception error)
-                    {
-                        RicTextActionPut($"oid-{oid}-值判断错误：{error.Message}。\r\n{error}\r\n", true);
-                    }
-
-                } while (true);
+                }
             }
-            return false;
+            catch (Exception error)
+            {
+                RicTextActionPut($"oid-{oid}-值判断错误：{error.Message}。\r\n{error}\r\n", true);
+            }
+            #region MyRegion
+            //try
+            //{
+            //    // 接受评论区信息，并判断是否包含指定mid。
+            //    if (remark.Contains("\"mid\":" + Properties.Settings.Default.userMid))
+            //    {
+            //        if (!findContainCommentsIsOid.ContainsKey(oid))
+            //        {
+            //            try
+            //            {
+            //                // 获取rpid。
+            //                MatchCollection match = Regex.Matches(remark, $"(?<=\"rpid\":)\\d{{4,18}}(?=,\"oid\":{oid},\"type\":\\d{{1,2}},\"mid\":{Properties.Settings.Default.userMid},\"root\")");
+            //                // 获取评论。
+            //                MatchCollection CommentMatch = Regex.Matches(remark, $"(?<=\"mid\":\"{Properties.Settings.Default.userMid}\"}}}},\"content\":{{\"message\":\").*?(?=\",\"members\":)");
+            //                // 判断评论id与评论是否相等。
+            //                if (match.Count == 0 || CommentMatch.Count != match.Count)
+            //                {
+            //                    RicTextActionPut($"错误：rpid与评论不相等。\r\nOid：{oid}\r\nrpid数：{match.Count}\r\n评论数：{CommentMatch.Count}", true);
+            //                }
+            //                try
+            //                {
+            //                    findContainCommentsIsOid.Add(oid, new Dictionary<string, string>());
+            //                    try
+            //                    {
+            //                        // 循环取值。
+            //                        for (int i = 0; i < match.Count; i++)
+            //                        {
+            //                            try
+            //                            {
+            //                                // 添加评论。
+            //                                findContainCommentsIsOid[oid].Add(match[i].ToString(), CommentMatch[i].ToString());
+            //                            }
+            //                            catch (Exception message)
+            //                            {
+
+            //                                RicTextActionPut($"oid{oid}错误：未能成功保存值。\r\n内容：{message.Message}", true);
+            //                            }
+            //                        }
+            //                    }
+            //                    catch (Exception message)
+            //                    {
+
+            //                        RicTextActionPut($"oid{oid}错误：取出评论时出错。\r\n内容：{message.Message}", true);
+            //                    }
+            //                }
+            //                catch (Exception message)
+            //                {
+            //                    RicTextActionPut($"oid{oid}错误：未能成功创建字典。\r\n内容：{message.Message}", true);
+            //                }
+            //            }
+            //            catch (Exception message)
+            //            {
+            //                RicTextActionPut($"{oid}错误：未能正确获取评论与rpid。\r\n内容：{message.Message}", true);
+            //            }
+            //        }
+            //    }
+            //}
+            //catch (Exception error)
+            //{
+            //    RicTextActionPut($"oid-{oid}-值判断错误：{error.Message}。\r\n{error}\r\n", true);
+            //}
+            #endregion
+
         }
         /// <summary>
         ///  删除按钮。
@@ -750,7 +935,11 @@ namespace B站视频历史评论删除工具
         private void button1_Click(object sender, EventArgs e)
         {
             button1.Enabled = false;
-            ThereAreComments("450117081");
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            ThereAreComments("317775239");
+            sw.Stop();
+            RicTextActionPut($"耗时：{sw.Elapsed.Seconds}", true);
             button1.Enabled = true;
 
         }
